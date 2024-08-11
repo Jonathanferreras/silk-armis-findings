@@ -1,6 +1,14 @@
-import { useEffect, useState } from "react";
-import { PieChart, Pie, Cell, Text } from "recharts";
+import { useCallback, useEffect, useState } from "react";
+import { Modal } from "./components/Modal";
 import { IGroupedFindings, IRawFindings } from "./types/IFindings";
+import { GridTable } from "./components/GridTable";
+import { SEVERITY_COLOR_MAP } from "./constants/severity";
+import { IPieChartData, PieChart } from "./components/PieChart";
+import { dateFormat } from "./utility/date";
+import {
+  GROUPED_FINDINGS_ALL_ENDPOINT,
+  RAW_FINDINGS_ALL_ENDPOINT,
+} from "./constants/endpoints";
 
 const styles = {
   appBar: {
@@ -13,37 +21,27 @@ const styles = {
     color: "#fff",
     fontWeight: "bold",
   },
-  appContent: {
-    display: "flex",
-    justifyContent: "center",
+  groupedFindingsContainer: {
+    margin: "0 25px",
   },
 };
 
 function App() {
   const [groupedFindings, setGroupFindings] = useState<
-    IGroupedFindings[] | null
+    IGroupedFindings[] | undefined | null
   >(null);
-  const [rawFindings, setRawFindings] = useState<IRawFindings[] | null>(null);
-  const SEVERITY_COLOR_MAP: { [key: string]: string } = {
-    low: "#00C49F", // Green for low severity
-    medium: "#FFBB28", // Yellow for medium severity
-    high: "#FF8042", // Orange for high severity
-    critical: "#FF0000", // Red for critical severity
-  };
+  const [rawFindings, setRawFindings] = useState<
+    IRawFindings[] | undefined | null
+  >(null);
+  const [groupedFindingsBySeverity, setGroupedFindingsBySeverity] = useState<
+    IPieChartData[] | null
+  >(null);
+  const [selectedRow, setSelectedRow] = useState<
+    IGroupedFindings | undefined | null
+  >(null);
+  const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/v1/findings/grouped_findings_all")
-      .then((res) => res.json())
-      .then((json) => setGroupFindings(json.data));
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/v1/findings/raw_findings_all")
-      .then((res) => res.json())
-      .then((json) => setRawFindings(json.data));
-  }, []);
-
-  const generateGroupedFindingsBySeverity = () => {
+  const getGroupedFindingsBySeverity = useCallback(() => {
     const result: { name: string; value: number }[] = [];
     const severityMap: { [key: string]: number } = {};
 
@@ -62,77 +60,175 @@ function App() {
     }
 
     return result;
+  }, [groupedFindings]);
+
+  const generateGroupedFindingsColumns = () => {
+    return [
+      {
+        field: "id",
+        headerName: "#",
+      },
+      {
+        field: "severity",
+        cellRenderer: ({ value }: { value: string }) => (
+          <span
+            style={{ color: SEVERITY_COLOR_MAP[value], fontWeight: "bold" }}
+          >
+            {value}
+          </span>
+        ),
+      },
+      {
+        field: "description",
+        cellRenderer: ({ value }: { value: string }) => (
+          <a target="blank" href={value.replace("Remediation Group: ", "")}>
+            {value}
+          </a>
+        ),
+      },
+      {
+        field: "grouped_finding_created",
+        headerName: "Created",
+        valueGetter: ({ data }: { data: IGroupedFindings }) =>
+          dateFormat(data.grouped_finding_created),
+      },
+      { field: "security_analyst", headerName: "Security Analyst" },
+      {
+        field: "owner",
+      },
+      {
+        field: "progress",
+        valueGetter: ({ data }: { data: IGroupedFindings }) =>
+          `${(parseFloat(data.progress) * 100).toFixed(2)}%`,
+      },
+    ];
   };
 
-  const renderCustomizedLabel = ({
-    cx,
-    cy,
-    midAngle,
-    outerRadius,
-    name,
-    value,
-  }: {
-    cx: number;
-    cy: number;
-    midAngle: number;
-    outerRadius: number;
-    name: string;
-    value: string;
-  }) => {
-    const RADIAN = Math.PI / 180;
-    const radius = outerRadius + 20;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-    const lineX = cx + outerRadius * Math.cos(-midAngle * RADIAN);
-    const lineY = cy + outerRadius * Math.sin(-midAngle * RADIAN);
+  const generateRawFindingsColumns = () => {
+    return [
+      {
+        field: "id",
+        headerName: "#",
+      },
+      {
+        field: "severity",
+        cellRenderer: ({ value }: { value: string }) => (
+          <span
+            style={{ color: SEVERITY_COLOR_MAP[value], fontWeight: "bold" }}
+          >
+            {value}
+          </span>
+        ),
+      },
+      {
+        field: "status",
+      },
+      {
+        field: "description",
+      },
+      {
+        field: "source_security_tool_name",
+        headerName: "Security Tool",
+      },
+      {
+        field: "source_collaboration_tool_name",
+        headerName: "Collaboration Tool",
+      },
 
-    return (
-      <g>
-        <line
-          x1={lineX}
-          y1={lineY}
-          x2={x}
-          y2={y}
-          stroke="black"
-          strokeWidth={1}
-        />
-        <Text
-          x={x}
-          y={y}
-          fill="black"
-          textAnchor={x > cx ? "start" : "end"}
-          dominantBaseline="central"
-        >
-          {`${name.charAt(0).toUpperCase() + name.slice(1)}: ${value}`}
-        </Text>
-      </g>
+      {
+        field: "finding_created",
+        headerName: "Created",
+        valueGetter: ({ data }: { data: IRawFindings }) =>
+          dateFormat(data.finding_created),
+      },
+
+      {
+        field: "asset",
+      },
+
+      {
+        field: "remediation_text",
+      },
+    ];
+  };
+
+  const renderGroupedFindingsBySeverity = () => {
+    return groupedFindingsBySeverity ? (
+      <PieChart
+        data={groupedFindingsBySeverity}
+        customCells={true}
+        customCellsFill={SEVERITY_COLOR_MAP}
+      />
+    ) : (
+      <></>
     );
   };
 
+  const renderGroupedFindings = () => {
+    return (
+      <div style={styles.groupedFindingsContainer}>
+        <GridTable
+          onRowSelection={handleRowSelection}
+          rows={groupedFindings}
+          columns={generateGroupedFindingsColumns()}
+        />
+      </div>
+    );
+  };
+
+  const renderRawFindings = () => {
+    const relatedRawFindings = rawFindings?.filter(
+      (rawFinding) => rawFinding.grouped_finding_id === selectedRow?.id
+    );
+
+    return (
+      <>
+        <h1>Raw Findings for Group Findings #{selectedRow?.id}</h1>
+        <GridTable
+          rows={relatedRawFindings}
+          columns={generateRawFindingsColumns()}
+        />
+      </>
+    );
+  };
+
+  const handleRowSelection = (row: IGroupedFindings) => {
+    setSelectedRow(row);
+    setShowModal(true);
+  };
+
+  const handleToggleModal = () => setShowModal(!showModal);
+
+  useEffect(() => {
+    fetch(GROUPED_FINDINGS_ALL_ENDPOINT)
+      .then((res) => res.json())
+      .then((json) => setGroupFindings(json.data));
+  }, []);
+
+  useEffect(() => {
+    fetch(RAW_FINDINGS_ALL_ENDPOINT)
+      .then((res) => res.json())
+      .then((json) => setRawFindings(json.data));
+  }, []);
+
+  useEffect(() => {
+    if (groupedFindings && !groupedFindingsBySeverity) {
+      setGroupedFindingsBySeverity(getGroupedFindingsBySeverity());
+    }
+  }, [
+    groupedFindings,
+    getGroupedFindingsBySeverity,
+    groupedFindingsBySeverity,
+  ]);
+
   return (
     <>
+      <Modal open={showModal} onModalToggle={handleToggleModal}>
+        {renderRawFindings()}
+      </Modal>
       <div style={styles.appBar}>Silk-Armis Findings</div>
-      <div style={styles.appContent}>
-        <PieChart width={400} height={300}>
-          <Pie
-            data={generateGroupedFindingsBySeverity()}
-            cx="50%"
-            cy="50%"
-            labelLine={true}
-            label={renderCustomizedLabel}
-            outerRadius={80}
-            fill="#8884d8"
-            dataKey="value"
-          >
-            {generateGroupedFindingsBySeverity().map((entry, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={SEVERITY_COLOR_MAP[entry.name.toLowerCase()]}
-              />
-            ))}
-          </Pie>
-        </PieChart>
-      </div>
+      {renderGroupedFindingsBySeverity()}
+      {renderGroupedFindings()}
     </>
   );
 }

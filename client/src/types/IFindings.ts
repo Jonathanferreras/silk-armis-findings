@@ -5,8 +5,8 @@ export interface IGroupedFindings {
   severity: string;
   grouped_finding_created: string;
   sla: string;
-  description: Date;
-  security_analyst: Date;
+  description: string;
+  security_analyst: string;
   owner: string;
   workflow: string;
   status: string;
@@ -20,8 +20,8 @@ export interface IRawFindings {
   source_collaboration_tool_name: string;
   source_collaboration_tool_id: string;
   severity: string;
-  finding_created: Date;
-  ticket_created: Date;
+  finding_created: string;
+  ticket_created: string;
   description: string;
   asset: string;
   status: string;
