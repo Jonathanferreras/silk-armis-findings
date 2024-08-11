@@ -15,7 +15,7 @@ export interface IPieChartData {
 interface IPieChartProps {
   data: IPieChartData[];
   customCells?: boolean;
-  customCellsFill?: unknown | null | string;
+  customCellsFill?: Record<string, string> | null;
   width?: number;
   height?: 300;
 }
@@ -89,9 +89,7 @@ export const PieChart = ({
             data.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={
-                  customCellsFill[entry.name.toLowerCase()] || customCellsFill
-                }
+                fill={customCellsFill?.[entry.name.toLowerCase()] || "#000"}
               />
             ))}
         </Pie>

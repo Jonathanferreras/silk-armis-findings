@@ -36,9 +36,8 @@ function App() {
   const [groupedFindingsBySeverity, setGroupedFindingsBySeverity] = useState<
     IPieChartData[] | null
   >(null);
-  const [selectedRow, setSelectedRow] = useState<
-    IGroupedFindings | undefined | null
-  >(null);
+  const [selectedRow, setSelectedRow] = useState<IGroupedFindings | null>(null); // Adjusted type
+
   const [showModal, setShowModal] = useState(false);
 
   const getGroupedFindingsBySeverity = useCallback(() => {
@@ -192,9 +191,15 @@ function App() {
     );
   };
 
-  const handleRowSelection = (row: IGroupedFindings) => {
-    setSelectedRow(row);
-    setShowModal(true);
+  function isGroupedFindings(row: unknown): row is IGroupedFindings {
+    return typeof row === "object" && row !== null && "id" in row;
+  }
+
+  const handleRowSelection = (row: unknown) => {
+    if (isGroupedFindings(row)) {
+      setSelectedRow(row);
+      setShowModal(true);
+    }
   };
 
   const handleToggleModal = () => setShowModal(!showModal);
