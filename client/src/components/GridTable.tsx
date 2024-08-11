@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { ColDef } from "ag-grid-community";
+import { ColDef, SizeColumnsToContentStrategy } from "ag-grid-community";
 
 interface IGridTable {
   height?: number;
@@ -16,11 +16,12 @@ export const GridTable = ({
   onRowSelection,
 }: IGridTable) => {
   const gridRef = useRef<AgGridReact>(null);
-  const autoSizeStrategy = useMemo(() => {
-    return {
+  const autoSizeStrategy = useMemo<SizeColumnsToContentStrategy>(
+    () => ({
       type: "fitCellContents",
-    };
-  }, []);
+    }),
+    []
+  );
 
   return (
     <div className="table">

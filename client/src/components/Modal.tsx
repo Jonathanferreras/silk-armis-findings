@@ -1,4 +1,4 @@
-import { MouseEventHandler, ReactNode } from "react";
+import { ReactNode } from "react";
 
 interface IModalProps {
   children: ReactNode;
